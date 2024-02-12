@@ -1,0 +1,152 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String  @id @default(uuid())
+  name     String
+  email    String  @unique
+  avatar   String? @db.Text
+
+  servers  Server[]
+  members  Member[]
+  channels Channel[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Server {
+  id         String @id @default(uuid())
+  name       String
+  imageId    String @unique @map("image_id") @db.Text
+  imageUrl   String @unique @map("image_url") @db.Text
+  inviteCode String @unique @map("invite_code") @db.Text
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  members  Member[]
+  channels Channel[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("servers")
+}
+
+enum MemberRole {
+  ADMIN
+  MODERATOR
+  GUEST
+}
+
+model Member {
+  id   String     @id @default(uuid())
+  role MemberRole @default(GUEST)
+
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serverId String @map("server_id")
+  server   Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  messages       Message[]
+  directMessages DirectMessage[]
+
+  conversationsInitiated Conversation[] @relation("MemberOne")
+  conversationsReceived  Conversation[] @relation("MemberTwo")
+
+  @@map("members")
+}
+
+enum ChannelType {
+  TEXT
+  AUDIO
+  VIDEO
+}
+
+model Channel {
+  id   String      @id @default(uuid())
+  name String
+  type ChannelType @default(TEXT)
+
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serverId String @map("server_id")
+  server   Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("channels")
+}
+
+model Message {
+  id      String  @id @default(uuid())
+  content String?  @db.Text
+  fileUrl String? @map("file_url") @db.Text
+  fileId  String? @map("file_id") @db.Text
+  deleted Boolean @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberId String @map("member_id")
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  channelId String  @map("channel_id")
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model Conversation {
+  id String @id @default(uuid())
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberOneId String @map("member_one_id")
+  memberOne   Member @relation("MemberOne", fields: [memberOneId], references: [id], onDelete: Cascade)
+
+  memberTwoId    String          @map("member_two_id")
+  memberTwo      Member          @relation("MemberTwo", fields: [memberTwoId], references: [id], onDelete: Cascade)
+  directMessages DirectMessage[]
+
+  @@unique([memberOneId, memberTwoId])
+  @@map("conversations")
+}
+
+model DirectMessage {
+  id      String  @id @default(uuid())
+  content String?  @db.Text
+  fileUrl String? @map("file_url") @db.Text
+  fileId  String? @map("file_id") @db.Text
+  deleted Boolean @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberId String @map("member_id")
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("direct_messages")
+}
